@@ -1,0 +1,533 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Where Attention Goes</title>
+<meta name="description" content="Scroll through the numbers that decide what we build next.">
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='7' fill='%230b0c0f'/%3E%3Ccircle cx='16' cy='16' r='7' fill='%23ffb86b'/%3E%3C/svg%3E">
+<link rel="canonical" href="https://feldtdesign-ship-it.github.io/where-attention-goes/">
+<meta property="og:type" content="website">
+<meta property="og:title" content="Where Attention Goes">
+<meta property="og:description" content="Scroll through the numbers that decide what we build next.">
+<meta property="og:url" content="https://feldtdesign-ship-it.github.io/where-attention-goes/">
+<meta property="og:image" content="https://feldtdesign-ship-it.github.io/where-attention-goes/og.jpg">
+<meta property="og:image:width" content="800">
+<meta property="og:image:height" content="420">
+<meta name="twitter:card" content="summary_large_image">
+<link rel="preload" href="fonts/newsreader-latin-400-normal.woff2" as="font" type="font/woff2" crossorigin>
+<link rel="preload" href="fonts/inter-latin-400-normal.woff2" as="font" type="font/woff2" crossorigin>
+<meta name="color-scheme" content="dark">
+<script>
+  /* Pick the secondary-motion layer before first paint.
+     ?fx=gsap forces the JS layer; ?reduce=1 simulates reduced motion for testing. */
+  (function () {
+    var q = new URLSearchParams(location.search);
+    var cssOK = window.CSS && CSS.supports && CSS.supports('animation-timeline', 'view()');
+    var root = document.documentElement;
+    root.classList.add(q.get('fx') === 'gsap' || !cssOK ? 'fx-gsap' : 'fx-css');
+    var reduce = q.get('reduce') === '1' || matchMedia('(prefers-reduced-motion: reduce)').matches;
+    if (reduce) root.classList.add('reduce');
+  })();
+</script>
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/lenis@1.1.18/dist/lenis.css">
+<style>
+  /* fonts are self-hosted (SIL Open Font License, see fonts/) so line breaks match on every device */
+  @font-face { font-family: "Newsreader"; font-weight: 400; font-style: normal; font-display: swap; src: url("fonts/newsreader-latin-400-normal.woff2") format("woff2"); }
+  @font-face { font-family: "Inter"; font-weight: 400; font-style: normal; font-display: swap; src: url("fonts/inter-latin-400-normal.woff2") format("woff2"); }
+  @font-face { font-family: "Inter"; font-weight: 500; font-style: normal; font-display: swap; src: url("fonts/inter-latin-500-normal.woff2") format("woff2"); }
+
+  :root {
+    --bg: #0b0c0f;
+    --fg: #eceae4;
+    --mute: #8f8d86;
+    --line: rgba(236, 234, 228, .14);
+    --warm: #ffb86b;
+    --cool: #7fd0ff;
+    --pad: clamp(20px, 6vw, 96px);
+    --serif: "Newsreader", "Iowan Old Style", "Palatino Linotype", Palatino, Georgia, serif;
+    --sans: "Inter", system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+    color-scheme: dark;
+  }
+  * { box-sizing: border-box; margin: 0; }
+  html { background: var(--bg); }
+  body {
+    background: var(--bg); color: var(--fg);
+    font: 400 clamp(16px, 1.1vw + 11px, 19px)/1.35 var(--sans);
+    -webkit-font-smoothing: antialiased;
+  }
+
+  #gl { position: fixed; inset: 0; width: 100%; height: 100%; z-index: 0; display: block; }
+  main { position: relative; z-index: 1; }
+
+  /* top bar + scroll progress (CSS scroll() timeline) */
+  .bar-top {
+    position: fixed; inset: 0 0 auto 0; z-index: 5; display: flex; justify-content: space-between;
+    padding: 18px var(--pad); font-size: 12px; letter-spacing: .14em; text-transform: uppercase; color: var(--mute);
+    mix-blend-mode: difference; pointer-events: none;
+  }
+  .progress { position: fixed; inset: 0 0 auto 0; height: 2px; z-index: 6; background: var(--warm); transform-origin: left; transform: scaleX(0); }
+  .fx-css .progress { animation: fill linear both; animation-timeline: scroll(root); }
+  @keyframes fill { to { transform: scaleX(1); } }
+
+  section { min-height: 100svh; display: grid; grid-template-columns: minmax(0, 1fr); align-content: center; padding: 14svh var(--pad); }
+  /* line breaks fall at the natural pause in a phrase, never leave a lone word */
+  h1, h2, .lede, .trio span { text-wrap: balance; }
+  .caption, .rules p, footer p { text-wrap: pretty; }
+  .lede { max-width: none; }
+  .caption, .rules p, .trio span, .screen span, .lede { line-height: 1.25; }
+  .eyebrow { font-size: 12px; letter-spacing: .16em; text-transform: uppercase; color: var(--warm); margin-bottom: 1rem; }
+  h1, h2 { font-family: var(--serif); font-weight: 400; letter-spacing: -.02em; line-height: 1.04; padding-bottom: .16em; }
+  h1 { font-size: clamp(3.2rem, 11vw, 10rem); max-width: 11ch; }
+  h2 { font-size: clamp(2rem, 5vw, 4.2rem); max-width: 18ch; }
+  .lede { max-width: 38ch; margin-top: .6rem; color: var(--mute); font-size: 1.1em; }
+  .cue { margin-top: 2rem; font-size: 12px; letter-spacing: .16em; text-transform: uppercase; color: var(--mute); }
+
+  /* big number */
+  .big { font-family: var(--serif); font-size: clamp(4.5rem, 17vw, 15rem); line-height: .9; letter-spacing: -.04em; font-variant-numeric: tabular-nums; }
+  .big small { font-size: .28em; letter-spacing: 0; color: var(--mute); margin: 0 .25em 0 .06em; }
+  .caption { max-width: 56ch; margin-top: 1rem; color: var(--mute); }
+  .caption b { color: var(--fg); font-weight: 500; }
+
+  /* the heavy end: two giant numbers side by side */
+  .pair { display: grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); gap: clamp(24px, 5vw, 80px); margin: 1rem 0 2rem; }
+  .pair .big { font-size: clamp(5rem, 15vw, 13rem); }
+  .pair .big small { color: var(--warm); }
+
+  /* platform bars */
+  .bars { display: grid; gap: .8rem; margin-top: 1.6rem; max-width: 880px; }
+  .row { display: grid; grid-template-columns: 7.5rem 1fr 4.5rem; gap: 1rem; align-items: center; font-size: .95em; }
+  .row .t { height: 14px; background: var(--line); border-radius: 99px; overflow: hidden; }
+  .bar i {
+    display: block; height: 100%; border-radius: 99px; transform-origin: left; transform: scaleX(var(--v));
+    background: linear-gradient(90deg, var(--cool), var(--warm));
+  }
+  .row output { text-align: right; font-variant-numeric: tabular-nums; color: var(--mute); }
+  .fx-css .bar i { animation: grow linear both; animation-timeline: view(); animation-range: entry 15% entry 100%; }
+  @keyframes grow { from { transform: scaleX(0); } to { transform: scaleX(var(--v)); } }
+
+  /* reveals */
+  .fx-css .reveal { animation: rise linear both; animation-timeline: view(); animation-range: entry 0% entry 70%; }
+  @keyframes rise { from { opacity: 0; transform: translateY(44px); } to { opacity: 1; transform: none; } }
+
+  /* three stats */
+  .trio { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: clamp(20px, 3vw, 48px); margin-top: 1.8rem; }
+  .trio div { border-top: 1px solid var(--line); padding-top: .8rem; }
+  .trio strong { display: block; font-family: var(--serif); font-weight: 400; font-size: clamp(2.6rem, 6vw, 5rem); line-height: 1; letter-spacing: -.03em; }
+  .trio span { display: block; margin-top: .45rem; color: var(--mute); font-size: .92em; }
+
+  /* the scale: one dot is 100 million people */
+  .srows { display: grid; gap: 1.8rem; margin: 1.6rem 0 2.4rem; max-width: 900px; }
+  .srow strong { display: block; font-family: var(--serif); font-weight: 400; font-size: clamp(2.8rem, 7vw, 5.2rem); line-height: 1; letter-spacing: -.03em; color: var(--c); }
+  .srow span { display: block; margin-top: .4rem; color: var(--mute); line-height: 1.25; }
+  .dots { display: flex; flex-wrap: wrap; gap: 5px; margin-top: .8rem; }
+  .dots i { width: 9px; height: 9px; border-radius: 50%; background: var(--c); box-shadow: 0 0 8px color-mix(in srgb, var(--c) 55%, transparent); }
+  #s-scale .big small { color: var(--warm); }
+
+  /* two screens */
+  .duo { display: grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); gap: clamp(16px, 3vw, 40px); margin: 1.4rem 0 1.2rem; max-width: 980px; }
+  .screen { border: 1px solid var(--line); border-radius: 14px; padding: 1.2rem 1.4rem 1.3rem; background: rgba(236,234,228,.04); box-shadow: inset 0 0 40px rgba(127,208,255,.05); }
+  .screen strong { display: block; font-family: var(--serif); font-weight: 400; font-size: clamp(3.6rem, 9vw, 7rem); line-height: 1; letter-spacing: -.03em; }
+  .screen span { display: block; margin-top: .6rem; color: var(--mute); }
+  .screen em { display: block; margin-top: .5rem; font-style: normal; font-size: 12px; letter-spacing: .1em; text-transform: uppercase; color: var(--warm); }
+
+  /* speed button */
+  #speed { justify-self: start; margin-top: 2rem; font: inherit; font-size: .95em; color: var(--fg); background: transparent; border: 1px solid var(--warm); border-radius: 99px; padding: .7rem 1.4rem; cursor: pointer; transition: background .2s, color .2s; }
+  #speed { touch-action: none; user-select: none; -webkit-user-select: none; -webkit-touch-callout: none; }
+  #speed[aria-pressed="true"] { background: var(--warm); color: #0b0c0f; }
+  #speed:focus-visible { outline: 2px solid var(--cool); outline-offset: 3px; }
+  #s-speed .big small { color: var(--warm); }
+  .reduce #speed { display: none; }
+  @media (prefers-reduced-motion: reduce) { #speed { display: none; } }
+
+  /* closing */
+  .rules { display: grid; gap: 1rem; margin-top: 1.6rem; max-width: 46ch; }
+  .rules p { color: var(--mute); }
+  .rules b { color: var(--fg); font-weight: 500; }
+  #s-close { padding-top: 22svh; }
+  footer { padding: 0 var(--pad) 8svh; color: var(--mute); font-size: 12.5px; line-height: 1.7; max-width: 110ch; }
+  footer a { color: var(--fg); }
+
+  /* legibility scrim behind text-heavy sections */
+  section::before { content: ""; position: absolute; inset: 0; z-index: -1; background: linear-gradient(90deg, rgba(11,12,15,.72), rgba(11,12,15,0) 70%); pointer-events: none; }
+  section { position: relative; }
+
+  /* perf HUD (press P) */
+  #hud { position: fixed; right: 12px; bottom: 12px; z-index: 9; font: 11px/1.4 ui-monospace, Menlo, monospace; background: rgba(0,0,0,.7); color: #bff; padding: 8px 10px; border-radius: 6px; display: none; white-space: pre; }
+
+  /* reduced motion: everything visible and still */
+  .reduce .reveal, .reduce .bar i, .reduce .progress { animation: none !important; }
+  .reduce .reveal { opacity: 1; transform: none; }
+  .reduce .progress { display: none; }
+  @media (prefers-reduced-motion: reduce) {
+    .reveal, .bar i, .progress { animation: none !important; }
+    .reveal { opacity: 1; transform: none; }
+    .progress { display: none; }
+  }
+
+  @media (max-width: 420px) { .brk { display: none; } }
+  @media (max-width: 640px) {
+    .row { grid-template-columns: 5.6rem 1fr 3.6rem; gap: .7rem; }
+    section::before { background: rgba(11,12,15,.55); }
+  }
+</style>
+</head>
+<body>
+<canvas id="gl" aria-hidden="true"></canvas>
+<div class="progress" aria-hidden="true"></div>
+<div class="bar-top" aria-hidden="true"><span>Where attention goes</span><span>2026</span></div>
+<div id="hud"></div>
+
+<main>
+  <section id="s-hero">
+    <p class="eyebrow">Digital 2027 &middot; Pew 2025</p>
+    <h1>Where attention goes.</h1>
+    <p class="lede">Scroll through the numbers<br class="brk">that decide what we build next.</p>
+    <p class="cue">Scroll</p>
+  </section>
+
+  <section id="s-time">
+    <p class="eyebrow reveal">Every week</p>
+    <div class="big reveal" aria-label="19 hours 18 minutes"><span id="hrs">19</span><small>h</small><span id="mins">18</span><small>m</small></div>
+    <p class="caption reveal">That is how long the typical internet user<br>spends on social and video each week.<br><b>It went up 42 minutes in a year.</b></p>
+  </section>
+
+  <section id="s-extreme">
+    <p class="eyebrow reveal">The heavy end</p>
+    <div class="pair">
+      <div class="reveal">
+        <div class="big" aria-label="36 hours or more"><span class="cnt" data-to="36">36</span><small>h+</small></div>
+        <p class="caption">That is what the typical Filipino<br>spends every week.<br>It works out to over 5 hours a day.</p>
+      </div>
+      <div class="reveal">
+        <div class="big" aria-label="24 hours or more"><span class="cnt" data-to="24">24</span><small>h+</small></div>
+        <p class="caption">Internet users aged 16 to 24 average<br>over 24 hours a week.<br>That is a full day, every week.</p>
+      </div>
+    </div>
+    <p class="caption reveal">Twelve countries average<br>more than 24 hours a week.<br>Internet users aged 16 to 24 spend<br>over three times as long as<br>those aged 65 and over.</p>
+  </section>
+
+  <section id="s-bars">
+    <p class="eyebrow reveal">Every day, per user</p>
+    <h2 class="reveal">Five apps<br>dominate the day.</h2>
+    <div class="bars">
+      <div class="row"><span>TikTok</span><div class="t bar"><i style="--v:.958"></i></div><output>1h 55m</output></div>
+      <div class="row"><span>Instagram</span><div class="t bar"><i style="--v:.833"></i></div><output>1h 40m</output></div>
+      <div class="row"><span>YouTube</span><div class="t bar"><i style="--v:.733"></i></div><output>1h 28m</output></div>
+      <div class="row"><span>WhatsApp</span><div class="t bar"><i style="--v:.5"></i></div><output>1h+</output></div>
+      <div class="row"><span>Facebook</span><div class="t bar"><i style="--v:.492"></i></div><output>59m</output></div>
+    </div>
+    <p class="caption reveal" style="max-width:60ch">These figures cover mobile apps<br>in August 2026, excluding China.<br>Time spent on the web is not counted.</p>
+  </section>
+
+  <section id="s-scale">
+    <p class="eyebrow reveal">The scale</p>
+    <h2 class="reveal">It is hard to picture<br>this many people.</h2>
+    <p class="caption reveal">Each dot below is 100 million people, rounded down.</p>
+    <div class="srows">
+      <div class="srow reveal" style="--c: var(--cool)">
+        <strong>5.81B</strong><span>Social media accounts exist.<br>Some people have more than one.</span>
+        <div class="dots" data-n="58" aria-hidden="true"></div>
+      </div>
+      <div class="srow reveal" style="--c: var(--warm)">
+        <strong>3.64B</strong><span>People use a Meta app every day.<br>Meta reported that for September 2026.</span>
+        <div class="dots" data-n="36" aria-hidden="true"></div>
+      </div>
+      <div class="srow reveal" style="--c: var(--fg)">
+        <strong>1.1B+</strong><span>Adults use ChatGPT every month.<br>That figure is from<br>the second quarter of 2026.</span>
+        <div class="dots" data-n="11" aria-hidden="true"></div>
+      </div>
+    </div>
+    <div class="big reveal" aria-label="200 billion"><span>200</span><small>B</small></div>
+    <p class="caption reveal">YouTube says Shorts averaged<br>over 200 billion views a day.<br>That is about 2.3 million<br>views every second.<br>One creator disputes the figure.<br>YouTube has not shared<br>how it counts.</p>
+  </section>
+
+  <section id="s-dual">
+    <p class="eyebrow reveal">Two screens, one evening</p>
+    <h2 class="reveal">People watch TV<br>while they play games.</h2>
+    <div class="duo">
+      <div class="screen reveal"><strong>53%</strong><span>Just over half of US console gamers<br>play games while they stream TV.<br><em>LG Ad Solutions, 2023</em></span></div>
+      <div class="screen reveal"><strong>44%</strong><span>More than two in five consumers<br>in Southeast Asia play games<br>while they watch TV.<br><em>GWI, 2021</em></span></div>
+    </div>
+    <p class="caption reveal">These surveys cover different countries.<br>The habit is the same.</p>
+  </section>
+
+  <section id="s-speed">
+    <p class="eyebrow reveal">Faster</p>
+    <div class="big reveal" aria-label="2 times speed"><span>2</span><small>x</small></div>
+    <p class="caption reveal">Instagram added double-speed Reels<br>in March 2025.<br>You press and hold the screen to use it.<br>TikTok offers it too.</p>
+    <div class="trio">
+      <div class="reveal"><strong>900+ years</strong><span>That is how much video time<br>YouTube viewers save every day<br>by watching faster (June 2022).</span></div>
+      <div class="reveal"><strong>85%+</strong><span>Viewers who change the speed<br>choose faster over 85% of the time<br>(June 2022).</span></div>
+    </div>
+    <button id="speed" class="reveal" type="button" aria-pressed="false">Hold to watch this page at 2x</button>
+  </section>
+
+  <section id="s-shift">
+    <p class="eyebrow reveal">Meanwhile</p>
+    <h2 class="reveal">The open web is where<br>time is leaving.</h2>
+    <div class="trio">
+      <div class="reveal"><strong>&minus;11.2%</strong><span>Time spent on the world's<br>top 10,000 websites fell by that much<br>over the last 24 months.</span></div>
+      <div class="reveal"><strong>3.24B</strong><span>That many people use generative AI<br>every month.<br>It grew 57% in a year.</span></div>
+      <div class="reveal"><strong>21%</strong><span>That share of US teens uses TikTok<br>almost constantly.<br>In 2022 it was 16%.</span></div>
+    </div>
+  </section>
+
+  <section id="s-close">
+    <p class="eyebrow reveal">So</p>
+    <h2 class="reveal">A website now has<br>to earn the visit.</h2>
+    <div class="rules">
+      <p class="reveal"><b>Be a place, not a page.</b><br>Give people something to be in,<br>not just something to read.</p>
+      <p class="reveal"><b>Move with purpose.</b><br>Motion should carry the story,<br>and stop when asked to.</p>
+      <p class="reveal"><b>Put speed first.</b><br>The best effect is the one<br>that never drops a frame.</p>
+    </div>
+  </section>
+
+  <footer>
+    <p>Sources<br>
+    <a href="https://datareportal.com/reports/digital-2027-global-overview-report">DataReportal, Digital 2027 Global Overview</a><br>
+    Weekly time is from GWI. Per-app time is from Similarweb, August 2026.<br>
+    Web time is from Similarweb. AI user numbers are as reported there.<br>
+    <a href="https://datareportal.com/reports/digital-2027-the-steady-decline-of-the-web">DataReportal, The Steady Decline of the World Wide Web</a><br>
+    <a href="https://www.pewresearch.org/internet/2025/12/09/teens-social-media-and-ai-chatbots-2025/">Pew Research Center, Teens, Social Media and AI Chatbots 2025</a><br>
+    <a href="https://investor.atmeta.com/investor-news/press-release-details/2026/Meta-Reports-Third-Quarter-2026-Results/default.aspx">Meta, third quarter 2026 results, October 21, 2026</a><br>
+    <a href="https://www.tubefilter.com/2025/06/18/youtube-shorts-200-billion-daily-views-google-veo-3-ai-neal-mohan/amp/">Tubefilter, YouTube CEO on 200 billion daily Shorts views, June 2025</a><br>
+    <a href="https://www.advanced-television.com/2023/04/19/study-gamers-watch-more-fast-svod-than-ctv-owners/">LG Ad Solutions, The Connected Gamer, March 2023 (via Advanced Television)</a><br>
+    <a href="https://www.warc.com/content/article/warc-datapoints-gwi/44-of-sea-consumers-play-video-games-while-watching-tv/138701">GWI, Southeast Asia, August 2021 (via WARC)</a><br>
+    <a href="https://blog.youtube/inside-youtube/youtube-watch-video-playback-speeds-trends">YouTube, playback speed trends, August 2022</a><br>
+    <a href="https://www.socialmediatoday.com/news/instagram-adds-2x-playback-reels/743749/">Social Media Today, Instagram adds 2x Reels playback</a></p>
+    <p style="margin-top:1.2em">This page is built with Lenis, GSAP ScrollTrigger, three.js<br>
+    and CSS scroll-driven animation.<br>
+    Press P to see a frame meter.<br>
+    Add ?fx=gsap to the address to force the JavaScript motion layer.</p>
+  </footer>
+</main>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.5/gsap.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.5/ScrollTrigger.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/lenis@1.1.18/dist/lenis.min.js"></script>
+<script type="importmap">{ "imports": { "three": "https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.js" } }</script>
+<script type="module">
+import * as THREE from 'three';
+
+const root = document.documentElement;
+const reduce = root.classList.contains('reduce');
+gsap.registerPlugin(ScrollTrigger);
+
+/* ---------- smooth scroll (Lenis drives GSAP's clock) ---------- */
+let lenis = null;
+if (!reduce) {
+  lenis = new Lenis({ lerp: 0.1 });
+  lenis.on('scroll', ScrollTrigger.update);
+  gsap.ticker.add((t) => lenis.raf(t * 1000));
+  gsap.ticker.lagSmoothing(0);
+}
+
+/* ---------- scroll progress shared with the 3D scene ---------- */
+const state = { target: 0, p: 0 };
+ScrollTrigger.create({
+  trigger: root, start: 'top top', end: 'bottom bottom',
+  onUpdate: (s) => { state.target = s.progress; }
+});
+
+/* ---------- three.js particle field ---------- */
+const canvas = document.getElementById('gl');
+let renderer = null;
+try {
+  renderer = new THREE.WebGLRenderer({ canvas, antialias: false, alpha: true, powerPreference: 'high-performance' });
+} catch (e) { canvas.style.display = 'none'; }
+
+let uniforms = null, scene, camera, points;
+function buildScene() {
+  const narrow = innerWidth < 700;
+  const N = narrow ? 12000 : 26000;
+  const sphere = new Float32Array(N * 3), grid = new Float32Array(N * 3), scatter = new Float32Array(N * 3), rand = new Float32Array(N);
+  const cols = Math.ceil(Math.sqrt(N * 1.6));
+  const rows = Math.ceil(N / cols);
+  const phi = Math.PI * (3 - Math.sqrt(5));
+  for (let i = 0; i < N; i++) {
+    const y = 1 - (i / (N - 1)) * 2, r = Math.sqrt(1 - y * y), th = phi * i;
+    sphere.set([Math.cos(th) * r * 2.1, y * 2.1, Math.sin(th) * r * 2.1], i * 3);
+    const cx = i % cols, cz = Math.floor(i / cols);
+    grid.set([(cx / cols - .5) * 15, -1.6, (cz / rows - .5) * 13], i * 3);
+    const a = Math.random() * Math.PI * 2, b = Math.acos(2 * Math.random() - 1), d = 5 + Math.random() * 7;
+    scatter.set([Math.sin(b) * Math.cos(a) * d, Math.cos(b) * d * .7, Math.sin(b) * Math.sin(a) * d - 2], i * 3);
+    rand[i] = Math.random();
+  }
+  const g = new THREE.BufferGeometry();
+  g.setAttribute('position', new THREE.BufferAttribute(sphere, 3));
+  g.setAttribute('aSphere', new THREE.BufferAttribute(sphere, 3));
+  g.setAttribute('aGrid', new THREE.BufferAttribute(grid, 3));
+  g.setAttribute('aScatter', new THREE.BufferAttribute(scatter, 3));
+  g.setAttribute('aRand', new THREE.BufferAttribute(rand, 1));
+
+  uniforms = {
+    uTime: { value: 0 }, uProgress: { value: 0 }, uPR: { value: 1 },
+    uWarm: { value: new THREE.Color('#ffb86b') }, uCool: { value: new THREE.Color('#7fd0ff') }
+  };
+  const mat = new THREE.ShaderMaterial({
+    uniforms, transparent: true, depthWrite: false, blending: THREE.AdditiveBlending,
+    vertexShader: /* glsl */`
+      uniform float uTime, uProgress, uPR;
+      attribute vec3 aSphere, aGrid, aScatter;
+      attribute float aRand;
+      varying float vMix, vAlpha;
+      void main() {
+        float p = uProgress;
+        float a = smoothstep(0.06, 0.30, p);
+        float b = smoothstep(0.56, 0.80, p);
+        float c = smoothstep(0.90, 1.00, p);
+        vec3 pos = mix(aSphere, aGrid, a);
+        pos.y += sin(aGrid.x * .9 + uTime * .9) * cos(aGrid.z * .7 + uTime * .6) * .45 * a * (1. - b);
+        pos += normalize(aSphere) * sin(uTime * .8 + aRand * 6.2831) * .05 * (1. - a);
+        pos = mix(pos, aScatter, b);
+        pos = mix(pos, aSphere * .55, c);
+        vec4 mv = modelViewMatrix * vec4(pos, 1.);
+        gl_PointSize = (2.1 + aRand * 2.2) * uPR * (6. / -mv.z);
+        gl_Position = projectionMatrix * mv;
+        vMix = clamp(aRand * .6 + p * .7, 0., 1.);
+        vAlpha = .55 + aRand * .45;
+      }`,
+    fragmentShader: /* glsl */`
+      uniform vec3 uWarm, uCool;
+      varying float vMix, vAlpha;
+      void main() {
+        float d = length(gl_PointCoord - .5);
+        float m = smoothstep(.5, .0, d);
+        gl_FragColor = vec4(mix(uCool, uWarm, vMix), m * vAlpha);
+      }`
+  });
+  points = new THREE.Points(g, mat);
+  scene = new THREE.Scene();
+  scene.add(points);
+  camera = new THREE.PerspectiveCamera(50, 1, .1, 60);
+  camera.position.set(0, .4, 8);
+}
+
+const mouse = { x: 0, y: 0, tx: 0, ty: 0 };
+addEventListener('pointermove', (e) => { mouse.tx = e.clientX / innerWidth - .5; mouse.ty = e.clientY / innerHeight - .5; }, { passive: true });
+
+function resize() {
+  if (!renderer) return;
+  const pr = Math.min(devicePixelRatio || 1, 2);
+  renderer.setPixelRatio(pr);
+  renderer.setSize(innerWidth, innerHeight, false);
+  camera.aspect = innerWidth / innerHeight;
+  camera.position.z = innerWidth < 700 ? 11 : 8;
+  camera.updateProjectionMatrix();
+  uniforms.uPR.value = pr;
+}
+
+/* playback speed: the whole page runs on this clock, so 2x really is 2x */
+let speed = 1, simT = 0, lastT = null;
+
+function frame(t) {
+  simT += lastT === null ? 0 : (t - lastT) * speed;
+  lastT = t;
+  uniforms.uTime.value = simT;
+  state.p += (state.target - state.p) * .06;
+  uniforms.uProgress.value = state.p;
+  mouse.x += (mouse.tx - mouse.x) * .05; mouse.y += (mouse.ty - mouse.y) * .05;
+  points.rotation.y = simT * .06 + mouse.x * .5;
+  points.rotation.x = mouse.y * .25;
+  camera.position.y = .4 + state.p * 1.2;
+  camera.lookAt(0, 0, 0);
+  renderer.render(scene, camera);
+}
+
+if (renderer) {
+  buildScene();
+  resize();
+  addEventListener('resize', resize);
+  if (reduce) {
+    frame(0);                                  // one still frame, updated only on resize/scroll end
+    addEventListener('resize', () => frame(0));
+  } else {
+    gsap.ticker.add((time) => frame(time));
+  }
+}
+
+/* ---------- big number counter ---------- */
+const hrs = document.getElementById('hrs'), mins = document.getElementById('mins');
+if (!reduce) {
+  hrs.textContent = '0'; mins.textContent = '00';
+  const o = { h: 0, m: 0 };
+  gsap.to(o, {
+    h: 19, m: 18, duration: 1.8, ease: 'power3.out',
+    scrollTrigger: { trigger: '#s-time', start: 'top 60%', once: true },
+    onUpdate() { hrs.textContent = Math.round(o.h); mins.textContent = String(Math.round(o.m)).padStart(2, '0'); }
+  });
+}
+
+/* ---------- dot rows: one dot is 100 million people ---------- */
+document.querySelectorAll('.dots').forEach((box) => {
+  const n = +box.dataset.n;
+  for (let i = 0; i < n; i++) box.appendChild(document.createElement('i'));
+  if (!reduce) {
+    gsap.from(box.children, {
+      scale: 0, opacity: 0, duration: .45, ease: 'back.out(2.2)', stagger: .014,
+      scrollTrigger: { trigger: box, start: 'top 85%', once: true }
+    });
+  }
+});
+
+/* ---------- 2x button ---------- */
+const speedBtn = document.getElementById('speed');
+/* hold for 2x, let go for 1x: same gesture as Instagram and TikTok */
+const setSpeed = (s) => {
+  if (speed === s) return;
+  speed = s;
+  gsap.globalTimeline.timeScale(s);
+  speedBtn.setAttribute('aria-pressed', s === 2 ? 'true' : 'false');
+  speedBtn.textContent = s === 2 ? 'Playing at 2x' : 'Hold to watch this page at 2x';
+};
+speedBtn.addEventListener('pointerdown', (e) => {
+  try { speedBtn.setPointerCapture(e.pointerId); } catch (err) { /* capture is a nicety, not required */ }
+  setSpeed(2);
+});
+['pointerup', 'pointercancel', 'lostpointercapture'].forEach((ev) => speedBtn.addEventListener(ev, () => setSpeed(1)));
+speedBtn.addEventListener('keydown', (e) => { if ((e.key === ' ' || e.key === 'Enter') && !e.repeat) { e.preventDefault(); setSpeed(2); } });
+speedBtn.addEventListener('keyup', (e) => { if (e.key === ' ' || e.key === 'Enter') setSpeed(1); });
+speedBtn.addEventListener('blur', () => setSpeed(1));
+speedBtn.addEventListener('contextmenu', (e) => e.preventDefault());
+addEventListener('blur', () => setSpeed(1));
+
+/* ---------- heavy-end counters ---------- */
+if (!reduce) {
+  gsap.utils.toArray('.cnt').forEach((el) => {
+    const to = +el.dataset.to, o = { v: 0 };
+    el.textContent = '0';
+    gsap.to(o, {
+      v: to, duration: 2, ease: 'power3.out',
+      scrollTrigger: { trigger: '#s-extreme', start: 'top 55%', once: true },
+      onUpdate() { el.textContent = Math.round(o.v); }
+    });
+  });
+}
+
+/* ---------- secondary motion: JS fallback when CSS timelines are unavailable (or ?fx=gsap) ---------- */
+if (root.classList.contains('fx-gsap') && !reduce) {
+  gsap.utils.toArray('.reveal').forEach((el) =>
+    gsap.from(el, { y: 44, opacity: 0, duration: 1, ease: 'power3.out', scrollTrigger: { trigger: el, start: 'top 88%' } }));
+  gsap.utils.toArray('.bar i').forEach((el) =>
+    gsap.from(el, { scaleX: 0, duration: 1.2, ease: 'power3.out', scrollTrigger: { trigger: el, start: 'top 92%' } }));
+  gsap.to('.progress', { scaleX: 1, ease: 'none', scrollTrigger: { trigger: root, start: 'top top', end: 'bottom bottom', scrub: true } });
+}
+
+/* ---------- frame meter: press P ---------- */
+const hud = document.getElementById('hud');
+let hudOn = false, last = performance.now(), deltas = [], longFrames = 0;
+addEventListener('keydown', (e) => { if (e.key.toLowerCase() === 'p') { hudOn = !hudOn; hud.style.display = hudOn ? 'block' : 'none'; } });
+(function loop(now) {
+  const d = now - last; last = now;
+  deltas.push(d); if (deltas.length > 120) deltas.shift();
+  if (d > 33.4) longFrames++;
+  if (hudOn && deltas.length > 10) {
+    const avg = deltas.reduce((a, b) => a + b, 0) / deltas.length, worst = Math.max(...deltas);
+    hud.textContent = 'fps ' + (1000 / avg).toFixed(0) + '\nworst ' + worst.toFixed(1) + ' ms\nslow frames ' + longFrames + '\nmode ' + (root.classList.contains('fx-css') ? 'css' : 'gsap');
+  }
+  requestAnimationFrame(loop);
+})(performance.now());
+</script>
+</body>
+</html>
